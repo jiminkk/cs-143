@@ -138,7 +138,7 @@ RC SqlEngine::load(const string& table, const string& loadfile, bool index)
   struct stat buffer;
   string recordfile = table + ".tbl";
   fstream fs;
-  fs.open(loadfile, fstream::in); // open loadfile
+  fs.open(loadfile.c_str(), fstream::in); // open loadfile
 
   // no need to check whether recordfile exists (the open() function of RecordFile helps with this)
   RecordFile rf = RecordFile(recordfile, 'w');
