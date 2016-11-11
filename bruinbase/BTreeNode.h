@@ -18,6 +18,7 @@
  */
 class BTLeafNode {
   public:
+    BTLeafNode();
    /**
     * Insert the (key, rid) pair to the node.
     * Remember that all keys inside a B+tree node should be kept sorted.
@@ -104,6 +105,9 @@ class BTLeafNode {
     * that contains the node.
     */
     char buffer[PageFile::PAGE_SIZE];
+    int tupleSize;
+    int numTotalTuples;
+    int typeCount; //number of types in tuple (always 3 since we have 3 ints: key, pid, sid)
 }; 
 
 
