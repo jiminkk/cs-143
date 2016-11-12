@@ -328,7 +328,6 @@ RC BTNonLeafNode::insert(int key, PageId pid)
  	tempbuffer[i+1] = pid;
  	
  	memcpy(buffer, tempbuffer, PageFile::PAGE_SIZE); // insert back into buffer
-	free(tempbuffer);
 
 	return 0;
 }
@@ -344,7 +343,9 @@ RC BTNonLeafNode::insert(int key, PageId pid)
  * @return 0 if successful. Return an error code if there is an error.
  */
 RC BTNonLeafNode::insertAndSplit(int key, PageId pid, BTNonLeafNode& sibling, int& midKey)
-{ return 0; }
+{
+
+}
 
 /*
  * Given the searchKey, find the child-node pointer to follow and
