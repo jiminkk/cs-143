@@ -116,6 +116,8 @@ class BTLeafNode {
  */
 class BTNonLeafNode {
   public:
+    BTNonLeafNode();
+    RC locate(int searchKey, int& eid);
    /**
     * Insert a (key, pid) pair to the node.
     * Remember that all keys inside a B+tree node should be kept sorted.
@@ -186,6 +188,9 @@ class BTNonLeafNode {
     * that contains the node.
     */
     char buffer[PageFile::PAGE_SIZE];
+    int numTotalKeys;
+    int pairSize;
+    int typeCount;  //always 2 (key | pageId)
 }; 
 
 #endif /* BTREENODE_H */

@@ -1,4 +1,5 @@
 #include "BTreeNode.h"
+#include <iostream>
 #include <string.h>
 
 using namespace std;
@@ -70,15 +71,13 @@ RC BTLeafNode::insert(int key, const RecordId& rid)
 
 	int * tempbuffer = (int *) buffer;
 	int insertLocation = 0;
-	if (locate(key, insertLocation) != 0) {
-		insertLocation = keyCount; // insert a new key after the rest of the keys (at the end)
-	}
+	locate(key, insertLocation);
 
 	int i = insertLocation * typeCount; // location of where we want to insert
-	int j = numTotalTuples * keyCount - 1; 
+	int j = numTotalTuples * keyCount - 1; 	// ?? instead of numTotalTuples, maybe should be typeCount? ?? ? ?? ? 
 	while ( j >= i) {
 		tempbuffer[j] = tempbuffer[j-1]; //move the tuples to the next slot (adjust array so that we can insert our tuple in slot i)
-		j--;
+		j--;								// shouldn't this move by 3 tuples? ???
 	}
 
 	tempbuffer[i] = key; // insert the key into the buffer
@@ -115,7 +114,7 @@ RC BTLeafNode::insertAndSplit(int key, const RecordId& rid,
 	int split = (getKeyCount() + 1)/2; //get half-number to use as split
 	int indexsplit = split * tupleSize; //number of bytes that will roughly go into each buffer
 
-	char * tempbuffer = buffer + indexsplit;
+	char *tempbuffer = buffer + indexsplit;
 
 	memcpy(sibling.buffer, tempbuffer, sizeof(tempbuffer)); //copy second half of buffer to sibling.
 	memset(tempbuffer, 0, PageFile::PAGE_SIZE - sizeof(PageId)); //set second half of current buffer to null
@@ -152,7 +151,7 @@ RC BTLeafNode::locate(int searchKey, int& eid)
 	int i = 0;
 	while (i < numKeys ) {
 		int key = *tempbuffer; //set key to be key in buffer
-		if (key = searchKey) {
+		if (key == searchKey) {
 			eid = i; //index entry number
 			return 0;
 		} else if (key > searchKey) {
@@ -217,13 +216,25 @@ RC BTLeafNode::setNextNodePtr(PageId pid)
 }
 
 /*
+	BTNonLeafNode Constructor
+*/
+BTNonLeafNode::BTNonLeafNode() {
+	memset(buffer, 0, PageFile::PAGE_SIZE); //clear buffer, set everything to -1
+	pairSize = sizeof(PageId) + sizeof(int);
+	numTotalKeys = (PageFile::PAGE_SIZE - sizeof(PageId))/pairSize; //# of keys limit of each page, by subtracting the first pageId for simpler calculation
+	typeCount = 2;
+}
+
+/*
  * Read the content of the node from the page pid in the PageFile pf.
  * @param pid[IN] the PageId to read
  * @param pf[IN] PageFile to read from
  * @return 0 if successful. Return an error code if there is an error.
  */
 RC BTNonLeafNode::read(PageId pid, const PageFile& pf)
-{ return 0; }
+{
+	return pf.read(pid, buffer); //use PageFile's read function to read the content from the page and store in buffer
+}
     
 /*
  * Write the content of the node to the page pid in the PageFile pf.
@@ -232,15 +243,62 @@ RC BTNonLeafNode::read(PageId pid, const PageFile& pf)
  * @return 0 if successful. Return an error code if there is an error.
  */
 RC BTNonLeafNode::write(PageId pid, PageFile& pf)
-{ return 0; }
+{
+	return pf.write(pid, buffer); //write the buffer's contents into the Pagefile with its own write function
+}
 
 /*
  * Return the number of keys stored in the node.
  * @return the number of keys in the node
  */
 int BTNonLeafNode::getKeyCount()
-{ return 0; }
+{
+	int keyCount = 0;
+	int * tempbuffer = (int *) buffer; //cast char* to int*
+	int i = 0;
+	while (i < numTotalKeys) {
+		int key = *tempbuffer;
+		if (key != 0) { //check if key is empty or not
+			keyCount++;
+		} else {
+			free(tempbuffer);
+			return keyCount;
+		}
+		tempbuffer += typeCount; //increment tempbuffer to point to next position of key
+		i++;
+	}
+	free(tempbuffer);
+	return keyCount;
+}
 
+/*
+	one difference from BTLeafNode: key starts at index after PageId
+	eid = __th key, starting from 0
+*/
+RC BTNonLeafNode::locate(int searchKey, int& eid)
+{ 
+	int numKeys = getKeyCount();
+
+	int * tempbuffer = (int *) buffer;
+	tempbuffer++;	// take account of the size of first PageId
+	int i = 0;
+	while (i < numKeys ) {
+		int key = *tempbuffer; //set key to be key in buffer
+		if (key == searchKey) {
+			eid = i; //index entry number
+			free(tempbuffer);
+			return 0;
+		} else if (key > searchKey) {	//if searchKey is smaller than current key, return eid of current key
+			eid = i;
+			free(tempbuffer);
+			return RC_NO_SUCH_RECORD; 
+		}
+		tempbuffer += typeCount; //change buffer to next key position
+		i++;
+	}
+	free(tempbuffer);
+	return RC_NO_SUCH_RECORD; 
+}
 
 /*
  * Insert a (key, pid) pair to the node.
@@ -249,7 +307,31 @@ int BTNonLeafNode::getKeyCount()
  * @return 0 if successful. Return an error code if the node is full.
  */
 RC BTNonLeafNode::insert(int key, PageId pid)
-{ return 0; }
+{
+	int keyCount = getKeyCount();
+	if (keyCount >= numTotalKeys) { //check if node is already full
+		return RC_NODE_FULL;
+	}
+
+	int * tempbuffer = (int *) buffer;
+	int insertLocation = 0;
+	locate(key, insertLocation);	//get correct insertLocation for key
+
+	int i = insertLocation * typeCount+1;	//+1 to account for the 1st index which is a single pageId
+	int j = typeCount * keyCount;	//the next index right after the last of existing keys, no need for -1 here (since 1st index is pid, not paired with any key)
+	while (i <= j) {
+		tempbuffer[j+2] = tempbuffer[j]; //move the tuples to the next slot (adjust array so that we can insert our tuple in slot i)
+		j--;
+ 	}
+
+ 	tempbuffer[i] = key;
+ 	tempbuffer[i+1] = pid;
+ 	
+ 	memcpy(buffer, tempbuffer, PageFile::PAGE_SIZE); // insert back into buffer
+	free(tempbuffer);
+
+	return 0;
+}
 
 /*
  * Insert the (key, pid) pair to the node
