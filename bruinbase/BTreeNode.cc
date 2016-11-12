@@ -73,10 +73,10 @@ RC BTLeafNode::insert(int key, const RecordId& rid)
 	locate(key, insertLocation);
 
 	int i = insertLocation * typeCount; // location of where we want to insert
-	int j = typeCount * keyCount - 1; 	// ?? instead of numTotalTuples, maybe should be typeCount? ?? ? ?? ? 
+	int j = typeCount * keyCount - 1; 	// get the pointer to sid of last tuple
 	while ( j >= i) {
 		tempbuffer[j + 3] = tempbuffer[j]; //move the tuples to the next slot (adjust array so that we can insert our tuple in slot i)
-		j--;								// shouldn't this move by 3 tuples? ???
+		j--;
 	}
 
 	tempbuffer[i] = key; // insert the key into the buffer
@@ -257,6 +257,7 @@ int BTNonLeafNode::getKeyCount()
 {
 	int keyCount = 0;
 	int * tempbuffer = (int *) buffer; //cast char* to int*
+	tempbuffer += 2;	//take account of the size of first 4 bytes (pageId) + another 4 bytes (empty)
 	int i = 0;
 	while (i < numTotalKeys) {
 		int key = *tempbuffer;
@@ -274,13 +275,15 @@ int BTNonLeafNode::getKeyCount()
 /*
 	one difference from BTLeafNode: key starts at index after PageId
 	eid = __th key, starting from 0
+	
+	this function locates where to insert searchKey
 */
 RC BTNonLeafNode::locate(int searchKey, int& eid)
 { 
 	int numKeys = getKeyCount();
 
 	int * tempbuffer = (int *) buffer;
-	tempbuffer++;	// take account of the size of first PageId
+	tempbuffer += 2;	//take account of the size of first 4 bytes (pageId) + another 4 bytes (empty)
 	int i = 0;
 	while (i < numKeys ) {
 		int key = *tempbuffer; //set key to be key in buffer
@@ -289,12 +292,13 @@ RC BTNonLeafNode::locate(int searchKey, int& eid)
 			return 0;
 		} else if (key > searchKey) {	//if searchKey is smaller than current key, return eid of current key
 			eid = i;
-			return RC_NO_SUCH_RECORD; 
+			return 0;
 		}
 		tempbuffer += typeCount; //change buffer to next key position
 		i++;
 	}
-	return RC_NO_SUCH_RECORD; 
+	eid = i;
+	return 0;
 }
 
 /*
@@ -314,17 +318,17 @@ RC BTNonLeafNode::insert(int key, PageId pid)
 	int insertLocation = 0;
 	locate(key, insertLocation);	//get correct insertLocation for key
 
-	int i = insertLocation * typeCount+1;	//+1 to account for the 1st index which is a single pageId
-	int j = typeCount * keyCount;	//the next index right after the last of existing keys, no need for -1 here (since 1st index is pid, not paired with any key)
+	int i = insertLocation * typeCount + 2;	//+2 to account for 8 bytes in the front (pageId + empty 4 bytes)
+	int j = typeCount * keyCount + 1;	//index of pid in the last existing pair of <key, pid>
 	while (i <= j) {
-		tempbuffer[j+2] = tempbuffer[j]; //move the tuples to the next slot (adjust array so that we can insert our tuple in slot i)
+		tempbuffer[j+2] = tempbuffer[j]; //move the pairs to the next slot to the right
 		j--;
  	}
 
  	tempbuffer[i] = key;
  	tempbuffer[i+1] = pid;
  	
- 	memcpy(buffer, tempbuffer, PageFile::PAGE_SIZE); // insert back into buffer
+ 	memcpy(buffer, tempbuffer, PageFile::PAGE_SIZE); //insert back into buffer
 
 	return 0;
 }
@@ -341,7 +345,58 @@ RC BTNonLeafNode::insert(int key, PageId pid)
  */
 RC BTNonLeafNode::insertAndSplit(int key, PageId pid, BTNonLeafNode& sibling, int& midKey)
 {
+	//numTotalKeys = # total pairs
+	int keyCount = getKeyCount();
 
+	if (keyCount < numTotalKeys)	//only split if node is full, else error
+		return RC_INVALID_ATTRIBUTE;
+	if (sibling.getKeyCount() != 0)	//check if sibling node is empty, else error
+		return RC_INVALID_ATTRIBUTE;
+
+	memset(sibling.buffer, 0, PageFile::PAGE_SIZE);	//clear sibling buffer in case
+
+	int split = (keyCount + 1)/2; //keys that will remain in first half of node
+	int indexsplit = split * pairSize + 8; //number of bytes in first half of node, +8 for initial pid & empty 4 bytes
+
+	int leftKey = -1;
+	int rightKey = -1;
+	//before splitting, find which key to split on
+	memcpy(&leftKey, buffer+indexsplit-8, sizeof(int));	//index of last key on the left side of node
+	memcpy(&rightKey, buffer+indexsplit, sizeof(int));	//index of first key on the right side of node
+
+	char *tempbuffer = buffer + indexsplit;
+
+	if (key < leftKey) {	//if key to insert is smaller than leftKey, remove leftKey
+		memcpy(sibling.buffer, buffer+indexsplit-4, sizeof(PageId));	//set the single pageId at the front of newly created sibling node
+		memcpy(sibling.buffer+8, buffer+indexsplit, PageFile::PAGE_SIZE-indexsplit);	//copy right side into sibling buffer, not including first 8 bytes
+		
+		memcpy(&midKey, &leftKey, sizeof(int));	//midKey to move to parent node is from leftKey
+		memset(buffer+indexsplit-8, 0, PageFile::PAGE_SIZE-indexsplit+8);	//clear second half, including midKey pair
+
+		insert(key, pid);	//insert function will locate the correct position to keep keys sorted
+	}
+	else if (key > rightKey) {	//if key to insert is greater than rightKey, remove rightKey
+		memcpy(sibling.buffer, buffer+indexsplit+4, sizeof(PageId));	//set the single pageId at the front of newly created sibling node
+		memcpy(sibling.buffer+8, buffer+indexsplit+8, PageFile::PAGE_SIZE-indexsplit);	//copy right side, NOT including the rightKey pair
+		
+		memcpy(&midKey, &rightKey, sizeof(int));	//midKey to move to parent node is from rightKey
+		memset(buffer+indexsplit, 0, PageFile::PAGE_SIZE-indexsplit);	//clear second half, including midKey pair
+
+		sibling.insert(key, pid);	//insert function will locate the correct position to keep keys sorted
+	}
+	else {			//if key to insert is midKey
+		memcpy(sibling.buffer, &pid, sizeof(PageId));	//single pageId at front is the parameter pid
+		memcpy(sibling.buffer+8, buffer+indexsplit, PageFile::PAGE_SIZE-indexsplit);	//copy right side of node into sibling
+		memset(buffer+indexsplit, 0, PageFile::PAGE_SIZE-indexsplit);	//clear second half
+		midKey = key;
+	}
+
+	//these are true for all non-leaf nodes
+	sibling.pairSize = pairSize;
+	sibling.numTotalKeys = numTotalKeys;
+	sibling.typeCount = typeCount;
+
+	return 0;
 }
 
 /*
@@ -352,7 +407,29 @@ RC BTNonLeafNode::insertAndSplit(int key, PageId pid, BTNonLeafNode& sibling, in
  * @return 0 if successful. Return an error code if there is an error.
  */
 RC BTNonLeafNode::locateChildPtr(int searchKey, PageId& pid)
-{ return 0; }
+{
+	int numKeys = getKeyCount();
+
+	int * tempbuffer = (int *) buffer;
+	tempbuffer += 2;	//take account of the size of first 4 bytes (pageId) + another 4 bytes (empty)
+	int i = 0;
+	if (*tempbuffer < searchKey) {	//if searchKey is smaller than the first key
+		memcpy(&pid, buffer, sizeof(PageId));	//get the very first single pageId
+		return 0;
+	}
+	while (i < numKeys) {
+		int key = *tempbuffer; //set key to be key in buffer
+		if (searchKey < key) {	//if searchKey is smaller than current key, return pid of current key
+			memcpy(&pid, tempbuffer-1, sizeof(PageId));	//-1 for pageId of the previous pair
+			return 0;
+		}
+		tempbuffer += typeCount; //change buffer to next key position
+		i++;
+	}
+	//if here, searchKey is greater than or equal to the last key of node
+	memcpy(&pid, tempbuffer-1, sizeof(PageId));
+	return 0; 
+}
 
 /*
  * Initialize the root node with (pid1, key, pid2).
@@ -362,4 +439,10 @@ RC BTNonLeafNode::locateChildPtr(int searchKey, PageId& pid)
  * @return 0 if successful. Return an error code if there is an error.
  */
 RC BTNonLeafNode::initializeRoot(PageId pid1, int key, PageId pid2)
-{ return 0; }
+{
+	memset(buffer, 0, PageFile::PAGE_SIZE); //clear buffer, set everything to -1
+	char* tempbuffer = buffer;
+	memcpy(tempbuffer, &pid1, sizeof(PageId));	//inserts the single pageId at front of the node
+
+	return insert(key, pid2);	//either returns 0 if successful, or some RC error value
+}
