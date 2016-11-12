@@ -51,7 +51,6 @@ int BTLeafNode::getKeyCount()
 		tempbuffer += typeCount; //increment tempbuffer to point to next position of key
 		i++;
 	}
-
 	return keyCount;
 }
 
@@ -74,15 +73,17 @@ RC BTLeafNode::insert(int key, const RecordId& rid)
 	locate(key, insertLocation);
 
 	int i = insertLocation * typeCount; // location of where we want to insert
-	int j = numTotalTuples * keyCount - 1; 	// ?? instead of numTotalTuples, maybe should be typeCount? ?? ? ?? ? 
+	int j = typeCount * keyCount - 1; 	// ?? instead of numTotalTuples, maybe should be typeCount? ?? ? ?? ? 
 	while ( j >= i) {
-		tempbuffer[j] = tempbuffer[j-1]; //move the tuples to the next slot (adjust array so that we can insert our tuple in slot i)
+		tempbuffer[j + 3] = tempbuffer[j]; //move the tuples to the next slot (adjust array so that we can insert our tuple in slot i)
 		j--;								// shouldn't this move by 3 tuples? ???
 	}
 
 	tempbuffer[i] = key; // insert the key into the buffer
 	tempbuffer[i+1] = rid.pid; // insert the pid into the buffer
 	tempbuffer[i+2] = rid.sid; //insert the slotid into the buffer
+
+	memcpy(buffer, tempbuffer, PageFile::PAGE_SIZE); // insert back into buffer
 
 	return 0;
 
@@ -161,6 +162,7 @@ RC BTLeafNode::locate(int searchKey, int& eid)
 		tempbuffer += typeCount; //change buffer to next key position
 		i++;
 	}
+
 	return RC_NO_SUCH_RECORD; 
 
 }
@@ -207,11 +209,11 @@ PageId BTLeafNode::getNextNodePtr()
 RC BTLeafNode::setNextNodePtr(PageId pid)
 { 
 	if (pid < 0) {
-		return RC_INVALID_PID; //I'm not sure if this is right. ???
+		return RC_INVALID_PID; 
 	}
 	int * tempbuffer = (int *) buffer;
-	tempbuffer += (numTotalTuples * typeCount);
-	*tempbuffer = pid;
+	tempbuffer[numTotalTuples * typeCount] = pid;
+	memcpy(buffer, tempbuffer, PageFile::PAGE_SIZE); 
 	return 0; 
 }
 
@@ -261,13 +263,11 @@ int BTNonLeafNode::getKeyCount()
 		if (key != 0) { //check if key is empty or not
 			keyCount++;
 		} else {
-			free(tempbuffer);
 			return keyCount;
 		}
 		tempbuffer += typeCount; //increment tempbuffer to point to next position of key
 		i++;
 	}
-	free(tempbuffer);
 	return keyCount;
 }
 
@@ -286,17 +286,14 @@ RC BTNonLeafNode::locate(int searchKey, int& eid)
 		int key = *tempbuffer; //set key to be key in buffer
 		if (key == searchKey) {
 			eid = i; //index entry number
-			free(tempbuffer);
 			return 0;
 		} else if (key > searchKey) {	//if searchKey is smaller than current key, return eid of current key
 			eid = i;
-			free(tempbuffer);
 			return RC_NO_SUCH_RECORD; 
 		}
 		tempbuffer += typeCount; //change buffer to next key position
 		i++;
 	}
-	free(tempbuffer);
 	return RC_NO_SUCH_RECORD; 
 }
 
