@@ -99,6 +99,9 @@ class BTLeafNode {
     */
     RC write(PageId pid, PageFile& pf);
 
+    /* print function */
+    void print();
+
   private:
    /**
     * The main memory buffer for loading the content of the disk page 
@@ -181,6 +184,9 @@ class BTNonLeafNode {
     * @return 0 if successful. Return an error code if there is an error.
     */
     RC write(PageId pid, PageFile& pf);
+
+    /* print function */
+    void print();
 
   private:
    /**

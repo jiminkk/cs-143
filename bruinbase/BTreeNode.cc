@@ -218,6 +218,24 @@ RC BTLeafNode::setNextNodePtr(PageId pid)
 }
 
 /*
+ *	print out keys, pids, and sids of leaf nodes
+*/
+void BTLeafNode::print() 
+{
+	int* tempbuffer = (int *) buffer;	//starting with first (key, (pid, sid)) tuple
+	int i = 0;
+	int keyCount = getKeyCount();
+	while (i < keyCount) {
+		int key = *tempbuffer;
+		int pid = *(++tempbuffer);
+		int sid = *(++tempbuffer);
+		cout << "i: " << i << " key: " << key << " pid: " << pid << " sid: " << sid << endl;
+		tempbuffer++;
+	}
+}
+
+
+/*
 	BTNonLeafNode Constructor
 */
 BTNonLeafNode::BTNonLeafNode() {
@@ -446,3 +464,20 @@ RC BTNonLeafNode::initializeRoot(PageId pid1, int key, PageId pid2)
 
 	return insert(key, pid2);	//either returns 0 if successful, or some RC error value
 }
+
+/*
+ *	print out keys
+*/
+void BTNonLeafNode::print() 
+{
+	int* tempbuffer = ((int *) buffer) + 2;	//starting with first (key, pageId) pair
+	int i = 0;
+	int keyCount = getKeyCount();
+	while (i < keyCount) {
+		int key = *tempbuffer;
+		cout << "i: " << i << " key: " << key << endl;
+		tempbuffer += typeCount;
+	}
+}
+
+
