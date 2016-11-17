@@ -97,6 +97,7 @@ class BTreeIndex {
   /// this class is destructed. Make sure to store the values of the two 
   /// variables in disk, so that they can be reconstructed when the index
   /// is opened again later.
+  char buffer[PageFile::PAGE_SIZE]; //used to read and store roodPid and treeHeight onto disk?
 };
 
 #endif /* BTREEINDEX_H */

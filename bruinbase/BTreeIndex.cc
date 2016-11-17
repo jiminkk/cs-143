@@ -9,6 +9,7 @@
  
 #include "BTreeIndex.h"
 #include "BTreeNode.h"
+#include <string.h>
 
 using namespace std;
 
@@ -18,6 +19,7 @@ using namespace std;
 BTreeIndex::BTreeIndex()
 {
     rootPid = -1;
+    treeHeight = 0;
 }
 
 /*
@@ -29,6 +31,34 @@ BTreeIndex::BTreeIndex()
  */
 RC BTreeIndex::open(const string& indexname, char mode)
 {
+    RC error_code;
+
+    error_code = pf.open(indexname, mode);
+
+    if (error_code != 0) {
+    	return error_code;
+    }
+
+    error_code = pf.read(0, buffer);
+
+    if (error_code != 0){
+    	return error_code;
+    }
+
+    PageId id;
+    int height;
+
+    memcpy(&id, buffer, sizeof(PageId)); //get id from disk if it exists
+    memcpy(&height, buffer + sizeof(PageId), sizeof(int)); //get height from disk if it exists
+
+    if (height > treeHeight) { //change treeHeight if necessary
+    	treeHeight = height;
+    }
+
+    if (id > rootPid) { //update the rootPid if necessary
+    	rootPid = id;
+    }
+
     return 0;
 }
 
@@ -38,7 +68,19 @@ RC BTreeIndex::open(const string& indexname, char mode)
  */
 RC BTreeIndex::close()
 {
-    return 0;
+    RC error_code;
+
+    memcpy(buffer, &rootPid, sizeof(PageId)); //store rootpid into buffer
+    memcpy(buffer + sizeof(PageId), &treeHeight, sizeof(int)); //store height into buffer
+
+    error_code = pf.write(0, buffer); //write buffer to disk (saves rootPid and treeHeight values)
+
+    if (error_code != 0) {
+    	return error_code;
+    }
+
+    error_code = pf.close();
+    return error_code;
 }
 
 /*
