@@ -39,7 +39,7 @@ RC BTreeIndex::open(const string& indexname, char mode)
     	return error_code;
     }
 
-    error_code = pf.read(0, buffer);
+    error_code = pf.read(0, buffer); //pageid = 0 is for our stuff that we want to store on disk like rootpid and height info
 
     if (error_code != 0){
     	return error_code;
@@ -90,6 +90,36 @@ RC BTreeIndex::close()
  * @return error code. 0 if no error
  */
 RC BTreeIndex::insert(int key, const RecordId& rid)
+{
+    if (key < 0) {
+        return RC_INVALID_ATTRIBUTE;
+    }
+
+    RC error_code;
+
+    if (treeHeight == 0) { //no B+ tree has been implemented yet
+        BTLeafNode leaf_node;
+        leaf_node.insert(key, rid);
+        treeHeight++;
+
+        rootPid = 1; //I think this is right? We want to start pid from 1, leaving pid of 0 for addition helper stuff like getting values of rootpid and treeheight from disk.
+
+        if (pf.endPid() != 0) { //Do I need this, if there are multiple pages?
+            rootPid = pf.endPid();
+        }
+
+        return leaf_node.write(rootPid, pf); //write to disk
+    }
+
+    //we have to insert somewhere in the tree
+
+    //call insertHelper(...)
+
+
+    return 0;
+}
+
+RC BTreeIndex::insertHelper(int key, const RecordId& rid, PageId pid, int height) //i'm not sure if I'm missing any paramters
 {
     return 0;
 }

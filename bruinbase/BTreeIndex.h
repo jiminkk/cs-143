@@ -57,6 +57,7 @@ class BTreeIndex {
    * @return error code. 0 if no error
    */
   RC insert(int key, const RecordId& rid);
+  RC insertHelper(int key, const RecordId& rid, PageId, int height);
 
   /**
    * Run the standard B+Tree key search algorithm and identify the
