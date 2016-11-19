@@ -114,6 +114,42 @@ RC BTreeIndex::insert(int key, const RecordId& rid)
  */
 RC BTreeIndex::locate(int searchKey, IndexCursor& cursor)
 {
+    RC error_code;
+    BTLeafNode leaf_node;
+    BTNonLeafNode nonleaf_node;
+    int height = 1; //start from root node
+
+    int eid;
+    PageId pid = rootPid;
+
+    for (height; height <= treeHeight; height++) { //start from root make way down the tree to leafnode
+        error_code = nonleaf_node.read(pid, pf); //read in the buffer from disk
+        /*if (error_code != 0) {
+            return error_code;
+        }*/
+
+        error_code = nonleaf_node.locateChildPtr(searchKey, pid); //locate the childptr that we should travel to next, next pid is stored in pid
+        if (error_code != 0) {
+            return error_code;
+        }
+    }
+
+    //we have reached leafnode level
+    error_code = leaf_node.read(pid, pf);
+    /*if (error_code != 0) {
+        return error_code;
+    }*/
+
+    error_code = leaf_node.locate(searchKey, eid); //locate the index entry from the current leaf
+
+    cursor.pid = pid;
+    cursor.eid = eid;
+
+
+    if (error_code != 0) {
+        return error_code; //returns RC_NO_SUCH_RECORD from the locate function of leafnode if the specific key cannot be found
+    }
+
     return 0;
 }
 
@@ -127,5 +163,27 @@ RC BTreeIndex::locate(int searchKey, IndexCursor& cursor)
  */
 RC BTreeIndex::readForward(IndexCursor& cursor, int& key, RecordId& rid)
 {
+    RC error_code;
+    PageId pid = cursor.pid;
+    int eid = cursor.eid;
+
+    BTLeafNode leaf_node;
+    error_code = leaf_node.read(pid, pf);
+
+    error_code = leaf_node.readEntry(eid, key, rid); //use leafnode's readEntry function to read in the key and rid given the eid
+
+    if (error_code != 0) {
+        return error_code;
+    }
+
+    if (eid >= leaf_node.getKeyCount() - 1) { //if eid is greater than or equal to the max amount of keys, then we would consider this an overflow (-1 is for converting from 1 start to 0 start)
+        cursor.eid = 0; //reset index entry to 0 for neighboring leafnode
+        cursor.pid = leaf_node.getNextNodePtr(); //change to next neighboring node if we exceeded max on current node
+        return 0;
+    } 
+
+    cursor.eid = cursor.eid + 1; //move forward the cursor to next entry
+    cursor.pid = pid; //we would still be in the same page, so pageid is still the same
+
     return 0;
 }
