@@ -112,15 +112,72 @@ RC BTreeIndex::insert(int key, const RecordId& rid)
     }
 
     //we have to insert somewhere in the tree
-
-    //call insertHelper(...)
-
-
+    error_code = insertHelper(key, rid, pid, 1);
+    if(error_code!=0)
+        return error_code;
     return 0;
 }
 
-RC BTreeIndex::insertHelper(int key, const RecordId& rid, PageId pid, int height) //i'm not sure if I'm missing any paramters
+RC BTreeIndex::insertHelper(int key, const RecordId& rid, PageId curPid, int curHeight)
 {
+    RC error_code;
+
+    // BASE CASE:
+    // if same height as tree's max height, leaf node
+    if (curHeight == treeHeight) {
+        // create leaf node
+        BTLeafNode curLeaf;
+        curLeaf.read(curPid, pf);
+
+        //if no error, insert leaf node
+        if(curLeaf.insert(key, rid) == 0) {
+            curLeaf.write(curPid, pf);         //write into pageFile (disk)
+            return 0;
+        }
+        //insert error might mean overflow, try insertAndSplit
+        BTLeafNode sibLeaf;
+        int sibKey;
+        error_code = curLeaf.insertAndSplit(key, rid, sibLeaf, sibKey); //get sibKey when function is called
+
+        if (error_code!=0)
+            return error_code;
+
+        //insert sibKey into parent node
+        int lastPid = pf.endPid();  //get last pid from the page file
+        //tempKey =???
+        //tempPid = ???
+
+        //set next node pointers for current and sibling leaves
+        sibLeaf.setNextNodePtr(curLeaf.getNextNodePtr());
+        curLeaf.setNextNodePtr(lastPid);
+        
+        //write into disk
+        error_code = sibLeaf.write(lastPid, pf);
+        if (error_code)
+            return error_code;
+        error_code = curLeaf.write(curPid, pf);
+        if (error_code)
+            return error_code;
+
+        //if at height = 1, create non-leaf node to act as root for the newly created children nodes
+        if (treeHeight == 1) {
+            BTNonLeafNode newRoot;
+            newRoot.initializeRoot(curPid, sibKey, lastPid);
+            treeHeight++;   //update treeHeight
+            rootPid = pf.endPid();  //update rootPid
+            newRoot.write(rootPid, pf);
+        }
+
+        return 0;
+    }   //end of base case
+    else { 
+        //recursive case: inserting in the middle of the tree
+        BTNonLeafNode curNode;
+        curNode.read(curPid, pf);
+
+        
+    }
+
     return 0;
 }
 
