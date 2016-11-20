@@ -117,15 +117,18 @@ RC BTLeafNode::insertAndSplit(int key, const RecordId& rid,
 
 	char *tempbuffer = buffer + indexsplit;
 
-	memcpy(sibling.buffer, tempbuffer, sizeof(tempbuffer)); //copy second half of buffer to sibling.
-	memset(tempbuffer, 0, PageFile::PAGE_SIZE - sizeof(PageId)); //set second half of current buffer to null
+	memcpy(sibling.buffer, buffer+indexsplit, PageFile::PAGE_SIZE - sizeof(PageId) - split); //copy second half of buffer to sibling.
+	memset(sibling.buffer + indexsplit, 0, PageFile::PAGE_SIZE - sizeof(PageId) - indexsplit);
+	memset(buffer+indexsplit, 0, PageFile::PAGE_SIZE - sizeof(PageId) - indexsplit); //set second half of current buffer to null
 	memcpy(&siblingKey, sibling.buffer, sizeof(int)); //set the first key in the sibling node after the split
+
 
 	if (key < siblingKey) { //insert in first half if key is less than start of second half
 		insert(key, rid);
 	} else {
 		sibling.insert(key, rid);
 	}
+
 
 	sibling.setNextNodePtr(getNextNodePtr()); //set the pid of the next sibling's node to be the current pid's next
 
@@ -150,6 +153,7 @@ RC BTLeafNode::locate(int searchKey, int& eid)
 
 	int * tempbuffer = (int *) buffer;
 	int i = 0;
+	eid = 0;
 	while (i < numKeys ) {
 		int key = *tempbuffer; //set key to be key in buffer
 		if (key == searchKey) {
@@ -161,6 +165,7 @@ RC BTLeafNode::locate(int searchKey, int& eid)
 		}
 		tempbuffer += typeCount; //change buffer to next key position
 		i++;
+		eid++;
 	}
 
 	return RC_NO_SUCH_RECORD; 
@@ -231,6 +236,7 @@ void BTLeafNode::print()
 		int sid = *(++tempbuffer);
 		cout << "i: " << i << " key: " << key << " pid: " << pid << " sid: " << sid << endl;
 		tempbuffer++;
+		i++;
 	}
 }
 
