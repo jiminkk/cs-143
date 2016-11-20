@@ -112,15 +112,19 @@ RC BTreeIndex::insert(int key, const RecordId& rid)
     }
 
     //we have to insert somewhere in the tree
-    error_code = insertHelper(key, rid, pid, 1);
+    int m_key = -1;
+    PageId m_pid = -1;
+    error_code = insertHelper(key, rid, rootPid, 1, m_key, m_pid);
     if(error_code!=0)
         return error_code;
     return 0;
 }
 
-RC BTreeIndex::insertHelper(int key, const RecordId& rid, PageId curPid, int curHeight)
+RC BTreeIndex::insertHelper(int key, const RecordId& rid, PageId curPid, int curHeight, int& m_key, PageId& m_pid)
 {
     RC error_code;
+    m_key = -1;
+    m_pid = -1;
 
     // BASE CASE:
     // if same height as tree's max height, leaf node
@@ -144,8 +148,8 @@ RC BTreeIndex::insertHelper(int key, const RecordId& rid, PageId curPid, int cur
 
         //insert sibKey into parent node
         int lastPid = pf.endPid();  //get last pid from the page file
-        //tempKey =???
-        //tempPid = ???
+        m_key = sibKey;     //key to move up to parent, done in recursive step
+        m_pid = lastPid;    //pid to move up to parent
 
         //set next node pointers for current and sibling leaves
         sibLeaf.setNextNodePtr(curLeaf.getNextNodePtr());
@@ -175,7 +179,51 @@ RC BTreeIndex::insertHelper(int key, const RecordId& rid, PageId curPid, int cur
         BTNonLeafNode curNode;
         curNode.read(curPid, pf);
 
-        
+        PageId childPid = -1;
+        curNode.locateChildPtr(key, childPid);  //we get childPid from this function
+
+        int moveKey = -1;
+        PageId movePid = -1;
+        error_code = insertHelper(key, rid, childPid, curHeight+1, moveKey, movePid);
+
+        if (error_code)
+            return error_code;
+
+        //if moveKey and movePid were modified, they must be moved up to parent node (which is our curNode)
+        if (!(moveKey == -1 && movePid == -1)) {
+            //if child's median key is successfully added into parent node
+            if (curNode.insert(moveKey, movePid) == 0) {
+                curNode.write(curPid, pf);
+                return 0;
+            }
+
+            //if not, try insert and split
+            BTNonLeafNode secondParent;
+            int secondKey;
+            curNode.insertAndSplit(moveKey, movePid, secondParent, secondKey);
+
+            int lastPid = pf.endPid();
+            m_key = secondKey;  //we need to pass in these parameters for all insertAndSplits
+            m_pid = lastPid;
+
+            error_code = curNode.write(curPid, pf);    //write into disk with new info with secondParent
+            if (error_code)
+                return error_code;
+
+            error_code = secondParent.write(lastPid, pf);
+            if (error_code)
+                return error_code;
+
+            //same thing as in base case
+            //if at height = 1, create non-leaf node to act as root for the newly created children nodes
+            if (treeHeight == 1) {
+                BTNonLeafNode newRoot;
+                newRoot.initializeRoot(curPid, secondKey, lastPid);
+                treeHeight++;   //update treeHeight
+                rootPid = pf.endPid();  //update rootPid
+                newRoot.write(rootPid, pf);
+            }
+        }
     }
 
     return 0;
