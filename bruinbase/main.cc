@@ -21,26 +21,26 @@ using namespace std;
 
 // const int MAX_NONLEAFDATA = 127;
 
-// void checkStatus(string msg, RC status) {
+void checkStatus(string msg, RC status) {
   
-//   if(status != 0){
-//     fprintf(stderr, "%s  | status = %d\n", msg.c_str(), status);
-//     //  exit(-1);
-//   }
+  if(status != 0){
+    fprintf(stderr, "%s  | status = %d\n", msg.c_str(), status);
+    //  exit(-1);
+  }
 
-// }
+}
 
 
-// RC BTNonLeafNode_insert_size_check(BTNonLeafNode& nl) {
-//    // Add some stuff to the empty BTNonLeafNode
-//   nl.insert(25, 30);
-//   nl.insert(35, 40);
+RC BTNonLeafNode_insert_size_check(BTNonLeafNode& nl) {
+   // Add some stuff to the empty BTNonLeafNode
+  nl.insert(25, 30);
+  nl.insert(35, 40);
   
-//   if(nl.getKeyCount() != 3)
-//     return -1;
-//   else return 0;
+  if(nl.getKeyCount() != 3)
+    return -1;
+  else return 0;
 
-// }
+}
 
 
 // RC BTNonLeafNode_insert_max_check(BTNonLeafNode& nl) {
@@ -160,56 +160,57 @@ using namespace std;
 
 
 
-// void BTreeIndex_test() {
+void BTreeIndex_test() {
   
-//   BTreeIndex index;
+  BTreeIndex index;
   
-//   index.open("tree.index", 'w');
-//   index.readMetadata();
+  index.open("tree.index", 'w');
+  //index.readMetadata();
   
 
-//   int numRecords = 50;
-
-//   // Go from [10 - 50]
-//   for (int i = 1; i < numRecords; i++) 
-//     {
-//       RecordId insertMe;
-//       insertMe.pid = i;
-//       insertMe.sid = i;
+  int numRecords = 12;
+  // Go from [10 - 50]
+  for (int i = 1; i < numRecords; i++) 
+    {
+      RecordId insertMe;
+      insertMe.pid = i;
+      insertMe.sid = i;
       
-//       int key_to_insert = i;
+      int key_to_insert = i;
       
-//       RC insert_status = index.insert(key_to_insert, insertMe);
-//       checkStatus("Error in insert of BTreeIndex!", insert_status);
+      RC insert_status = index.insert(key_to_insert, insertMe);
+      checkStatus("Error in insert of BTreeIndex!", insert_status);
      
 
-//       printf("Inserting %d with pid = %d, sid = %d\n", key_to_insert, insertMe.pid, insertMe.sid);
-//     }
+      printf("Inserting %d with pid = %d, sid = %d\n", key_to_insert, insertMe.pid, insertMe.sid);
+    }
   
   
-//   // Now try to find all the records
-//   for (int j = 1; j < numRecords; j++) 
-//     {
-//       IndexCursor cursor;
-//       cursor.pid = -1;
-//       cursor.eid = -1;
-//       int key_to_search = j;
-//       RC search_status = index.locate(key_to_search, cursor);
+  // Now try to find all the records
+  for (int j = 1; j < numRecords; j++) 
+    {
+      IndexCursor cursor;
+      cursor.pid = -1;
+      cursor.eid = -1;
+      int key_to_search = j;
+      RC search_status = index.locate(key_to_search, cursor);
 
-//       fprintf(stderr, "Checking key = %d\n.", j);
-//       checkStatus("Error in locate of BTreeIndex!", search_status);
+      fprintf(stderr, "Checking key = %d\n.", j);
+      checkStatus("Error in locate of BTreeIndex!", search_status);
       
-//       int key;
-//       RecordId rid;
-//       RC read_status = index.readForward(cursor, key, rid);
-//       //      checkStatus("Error in readForward of BTreeIndex!", read_status);
+      int key;
+      RecordId rid;
+      RC read_status = index.readForward(cursor, key, rid);
+      //      checkStatus("Error in readForward of BTreeIndex!", read_status);
       
-//       printf("Search for j = %d returned pid = %d, sid = %d.\n", key_to_search, rid.pid, rid.sid);
+      printf("Search for j = %d returned pid = %d, sid = %d.\n", key_to_search, rid.pid, rid.sid);
       
-//     }
+    }
   
 
-// }
+}//   int numRecords = 50;
+
+
 
 
 
@@ -253,7 +254,24 @@ int main()
 {
   
 //   //BTNonLeafNode_test();
-//   BTreeIndex_test();
+   //BTreeIndex_test();
+
+	RecordId rid;
+	rid.pid = 2;
+	rid.sid = 5;
+	BTLeafNode leaf;
+
+	for (int i = 0; i <= 20; i++) {
+		leaf.insert(i, rid);
+	}
+
+
+	leaf.print();
+
+	int eid;
+	RC error_code = leaf.locate(15, eid);
+
+	cout << "eid is " << eid <<  "\n";
   
 
 //   // BTNonLeafNode_insertAndSplit_check();
@@ -451,8 +469,8 @@ int main()
 
 
 
-//   // run the SQL engine taking user commands from standard input (console).
-  SqlEngine::run(stdin);
+ /* run the SQL engine taking user commands from standard input (console).*/
+  //SqlEngine::run(stdin);
 
   return 0;
 }
