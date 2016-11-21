@@ -10,6 +10,7 @@
 #include "BTreeIndex.h"
 #include "BTreeNode.h"
 #include <string.h>
+#include <iostream>
 
 using namespace std;
 
@@ -276,7 +277,7 @@ RC BTreeIndex::locate(int searchKey, IndexCursor& cursor)
     }*/
 
     error_code = leaf_node.locate(searchKey, eid); //locate the index entry from the current leaf
-
+    cout << error_code << endl;
     cursor.pid = pid;
     cursor.eid = eid;
 
@@ -322,3 +323,4 @@ RC BTreeIndex::readForward(IndexCursor& cursor, int& key, RecordId& rid)
 
     return 0;
 }
+

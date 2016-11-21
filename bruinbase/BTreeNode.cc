@@ -334,7 +334,7 @@ RC BTNonLeafNode::locate(int searchKey, int& eid)
 RC BTNonLeafNode::insert(int key, PageId pid)
 {
 	int keyCount = getKeyCount();
-	if (keyCount >= numTotalKeys) { //check if node is already full
+	if (keyCount+1 > numTotalKeys) { //check if node is already full
 		return RC_NODE_FULL;
 	}
 
@@ -464,11 +464,16 @@ RC BTNonLeafNode::locateChildPtr(int searchKey, PageId& pid)
  */
 RC BTNonLeafNode::initializeRoot(PageId pid1, int key, PageId pid2)
 {
+	RC error;
 	memset(buffer, 0, PageFile::PAGE_SIZE); //clear buffer, set everything to -1
 	char* tempbuffer = buffer;
 	memcpy(tempbuffer, &pid1, sizeof(PageId));	//inserts the single pageId at front of the node
 
-	return insert(key, pid2);	//either returns 0 if successful, or some RC error value
+	error = insert(key, pid2);	//either returns 0 if successful, or some RC error value
+
+	if (error!=0)
+		return error;
+	return 0;
 }
 
 /*
@@ -483,6 +488,7 @@ void BTNonLeafNode::print()
 		int key = *tempbuffer;
 		cout << "i: " << i << " key: " << key << endl;
 		tempbuffer += typeCount;
+		i++;
 	}
 }
 
