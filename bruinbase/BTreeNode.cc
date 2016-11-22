@@ -83,7 +83,7 @@ RC BTLeafNode::insert(int key, const RecordId& rid)
 	tempbuffer[i+1] = rid.pid; // insert the pid into the buffer
 	tempbuffer[i+2] = rid.sid; //insert the slotid into the buffer
 
-	memcpy(buffer, tempbuffer, PageFile::PAGE_SIZE); // insert back into buffer
+	memmove(buffer, tempbuffer, PageFile::PAGE_SIZE); // insert back into buffer
 
 	return 0;
 
@@ -117,7 +117,7 @@ RC BTLeafNode::insertAndSplit(int key, const RecordId& rid,
 
 	char *tempbuffer = buffer + indexsplit;
 
-	memcpy(sibling.buffer, buffer+indexsplit, PageFile::PAGE_SIZE - sizeof(PageId) - split); //copy second half of buffer to sibling.
+	memmove(sibling.buffer, buffer+indexsplit, PageFile::PAGE_SIZE - sizeof(PageId) - split); //copy second half of buffer to sibling.
 	memset(sibling.buffer + indexsplit, 0, PageFile::PAGE_SIZE - sizeof(PageId) - indexsplit);
 	memset(buffer+indexsplit, 0, PageFile::PAGE_SIZE - sizeof(PageId) - indexsplit); //set second half of current buffer to null
 	memcpy(&siblingKey, sibling.buffer, sizeof(int)); //set the first key in the sibling node after the split
@@ -218,7 +218,7 @@ RC BTLeafNode::setNextNodePtr(PageId pid)
 	}
 	int * tempbuffer = (int *) buffer;
 	tempbuffer[numTotalTuples * typeCount] = pid;
-	memcpy(buffer, tempbuffer, PageFile::PAGE_SIZE); 
+	memmove(buffer, tempbuffer, PageFile::PAGE_SIZE); 
 	return 0; 
 }
 
@@ -352,7 +352,7 @@ RC BTNonLeafNode::insert(int key, PageId pid)
  	tempbuffer[i] = key;
  	tempbuffer[i+1] = pid;
  	
- 	memcpy(buffer, tempbuffer, PageFile::PAGE_SIZE); //insert back into buffer
+ 	memmove(buffer, tempbuffer, PageFile::PAGE_SIZE); //insert back into buffer
 
 	return 0;
 }
@@ -437,7 +437,7 @@ RC BTNonLeafNode::locateChildPtr(int searchKey, PageId& pid)
 	int * tempbuffer = (int *) buffer;
 	tempbuffer += 2;	//take account of the size of first 4 bytes (pageId) + another 4 bytes (empty)
 	int i = 0;
-	if (*tempbuffer < searchKey) {	//if searchKey is smaller than the first key
+	if (*tempbuffer > searchKey) {	//if searchKey is smaller than the first key
 		memcpy(&pid, buffer, sizeof(PageId));	//get the very first single pageId
 		return 0;
 	}
@@ -491,5 +491,4 @@ void BTNonLeafNode::print()
 		i++;
 	}
 }
-
 

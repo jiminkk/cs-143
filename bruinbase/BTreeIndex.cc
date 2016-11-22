@@ -258,11 +258,11 @@ RC BTreeIndex::locate(int searchKey, IndexCursor& cursor)
     int eid;
     PageId pid = rootPid;
 
-    for (height; height <= treeHeight; height++) { //start from root make way down the tree to leafnode
+    for (height; height < treeHeight; height++) { //start from root make way down the tree to leafnode
         error_code = nonleaf_node.read(pid, pf); //read in the buffer from disk
-        /*if (error_code != 0) {
-            return error_code;
-        }*/
+       // if (error_code != 0) {
+       //     return error_code;
+       // }
 
         error_code = nonleaf_node.locateChildPtr(searchKey, pid); //locate the childptr that we should travel to next, next pid is stored in pid
         if (error_code != 0) {
@@ -272,15 +272,13 @@ RC BTreeIndex::locate(int searchKey, IndexCursor& cursor)
 
     //we have reached leafnode level
     error_code = leaf_node.read(pid, pf);
-    /*if (error_code != 0) {
+    if (error_code != 0) {
         return error_code;
-    }*/
+    }
 
     error_code = leaf_node.locate(searchKey, eid); //locate the index entry from the current leaf
-    cout << "Locate error is " << error_code << endl;
     cursor.pid = pid;
     cursor.eid = eid;
-
 
     if (error_code != 0) {
         return error_code; //returns RC_NO_SUCH_RECORD from the locate function of leafnode if the specific key cannot be found
