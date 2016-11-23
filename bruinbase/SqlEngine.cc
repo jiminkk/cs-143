@@ -15,6 +15,7 @@
 #include <sys/stat.h>
 #include "Bruinbase.h"
 #include "SqlEngine.h"
+#include "BTreeIndex.h"
 
 using namespace std;
 
@@ -140,17 +141,35 @@ RC SqlEngine::load(const string& table, const string& loadfile, bool index)
   fstream fs;
   fs.open(loadfile.c_str(), fstream::in); // open loadfile
 
+  BTreeIndex treeindex;
+
   // no need to check whether recordfile exists (the open() function of RecordFile helps with this)
   RecordFile rf = RecordFile(recordfile, 'w');
   string line;
   int key;
   string value;
   RecordId rId;
-  while (getline(fs, line)) {
+
+  if (index) {
+    string name = table + ".idx";
+    treeindex.open(name, 'w'); //get rootpid and treeheight if it already exists
+
+    while (getline(fs, line)) {
+      parseLoadLine(line, key, value);
+      rf.append(key, value, rId); //gets location of pageid and slotid and store it into rId
+      treeindex.insert(key, rId); //insert key rId tuple into table
+    }
+
+    treeindex.close();
+
+  } else {
+    while (getline(fs, line)) {
       // cout << line << endl;
-    parseLoadLine(line, key, value);
-    rf.append(key, value, rId);
+      parseLoadLine(line, key, value);
+      rf.append(key, value, rId);
+    }
   }
+  
 
   fs.close();
 
