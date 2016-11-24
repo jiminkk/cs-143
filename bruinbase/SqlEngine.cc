@@ -40,6 +40,7 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
 {
   RecordFile rf;   // RecordFile containing the table
   RecordId   rid;  // record cursor for table scanning
+  BTreeIndex treeindex;
 
   RC     rc;
   int    key;     
@@ -53,6 +54,68 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
     return rc;
   }
 
+  SelCond condition;
+  int val;
+  int min = -1;
+  int max = -1;
+  int keyIsEQ = -1;
+  string valIsEQ = "";
+  bool isNE; //checks if condition is not equals, if so, we don't want to run it through the index (as mentioned in the spec)
+
+  for (unsigned i = 0; i < cond.size(); i++) { //iterate through all of the conditions
+    condition = cond[i];
+    val = atoi(cond[i].value);
+    switch(condition.attr) {
+      case 1: //if attribute is a key (all operators can apply here)
+        switch (condition.comp) {
+          case SelCond::EQ:
+            keyIsEQ = val;
+            break;
+          case SelCond::NE:
+            isNE = true;
+            break;
+          case SelCond::LT:
+            if (max == -1 || max >= val) {
+              max = val;
+            }
+            break;
+          case SelCond::GT:
+            if (min == -1 || min <= val) {
+              min = val;
+            }
+            break;
+          case SelCond::LE:
+            if (max == -1 || max > val) {
+              max = val;
+            }
+            break;
+          case SelCond::GE:
+            if (min == -1 || min < val) {
+              min = val;
+            }
+        }
+      case 2: //if attribute is a value (only eq operator applies here since we would be comparing value to value)
+        if (condition.comp == SelCond::EQ) {
+          valIsEQ = cond[i].value;
+        }
+    }
+  }
+
+  if (isNE) {
+    goto not_index; //if we are dealing with a not equals, we want to do a full scan of table (and not from index tree)
+  }
+
+  if (max < min) { //What happens here? This should be invalid since the query range for max should never be less than min. Do we go to notindex?
+    goto exit_select;
+  }
+
+
+  if (treeindex.open(table + "idx", 'r') == 0) { //there is a B+ tree for this query
+
+
+  }
+
+  not_index: //come here if we don't want to go through index tree
   // scan the table file from the beginning
   rid.pid = rid.sid = 0;
   count = 0;
