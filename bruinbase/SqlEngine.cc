@@ -58,6 +58,8 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
   int val;
   int min = -1;
   int max = -1;
+  int ge = 0;
+  int le = 0;
   int keyIsEQ = -1;
   string valIsEQ = "";
   bool isNE; //checks if condition is not equals, if so, we don't want to run it through the index (as mentioned in the spec)
@@ -88,11 +90,14 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
             if (max == -1 || max > val) {
               max = val;
             }
+            le = 1;
             break;
           case SelCond::GE:
             if (min == -1 || min < val) {
               min = val;
             }
+            ge = 1;
+            break;
         }
       case 2: //if attribute is a value (only eq operator applies here since we would be comparing value to value)
         if (condition.comp == SelCond::EQ) {
@@ -105,13 +110,23 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
     goto not_index; //if we are dealing with a not equals, we want to do a full scan of table (and not from index tree)
   }
 
-  if (max < min) { //What happens here? This should be invalid since the query range for max should never be less than min. Do we go to notindex?
+  if (max < min && max != -1) { //What happens here? This should be invalid since the query range for max should never be less than min. Do we go to notindex?
     goto exit_select;
   }
 
 
   if (treeindex.open(table + "idx", 'r') == 0) { //there is a B+ tree for this query
+    IndexCursor cursor;
 
+    if (keyIsEQ != -1) { //if we are trying to find a particular key
+      indextree.locate(keyIsEQ, cursor);
+    } else if (min != -1 && ge == 1 ) {
+      indextree.locate(min, cursor); //>=
+    } else if (min != -1 && ge == 0) {
+      indextree.locate(min + 1, cursor); //>
+    } else {
+      indextree.locate(0, cursor); //start from very first element.
+    }
 
   }
 
