@@ -93,39 +93,39 @@ int main() {
 	// bug: locate can't locate the last key inserted into treeIndex
 
 
-  for (int i = 1; i < 5000; i++)
-  {
-     key = i;
-     rid.pid = i;
-     rid.sid = i;
-     rc = b.insert(key, rid);
-     if (rc != 0)
-     {
-        fprintf(stdout, "Error inserting %i, (%i %i): %i\n", key, rid.pid, rid.sid, rc);
-        return 0;
-     }
+  // for (int i = 1; i < 5000; i++)
+  // {
+  //    key = i;
+  //    rid.pid = i;
+  //    rid.sid = i;
+  //    rc = b.insert(key, rid);
+  //    if (rc != 0)
+  //    {
+  //       fprintf(stdout, "Error inserting %i, (%i %i): %i\n", key, rid.pid, rid.sid, rc);
+  //       return 0;
+  //    }
 
-     for (int j = 1; j <= i; j += 85)
-     {
-        rc = b.locate(j, ic);
-        if (rc != 0)
-        {
-          fprintf(stdout, "Error locating %i after %i: %i\n", j, i, rc);
-          return 0;
-        }
-        rc = b.readForward(ic, retKey, retRid);
-        if (rc != 0)
-        {
-          fprintf(stdout, "Error reading %i after %i: %i\n", j, i, rc);
-          return 0;
-        }
-        if (retKey != j || retRid.pid != j || retRid.sid != j)
-        {
-          fprintf(stdout, "Error: inserted %i (%i %i), located %i (%i %i)\n", key, rid.pid, rid.sid, retKey, retRid.pid, retRid.sid);
-          return 0;
-        }
-     }
-  }
+  //    for (int j = 1; j <= i; j += 85)
+  //    {
+  //       rc = b.locate(j, ic);
+  //       if (rc != 0)
+  //       {
+  //         fprintf(stdout, "Error locating %i after %i: %i\n", j, i, rc);
+  //         return 0;
+  //       }
+  //       rc = b.readForward(ic, retKey, retRid);
+  //       if (rc != 0)
+  //       {
+  //         fprintf(stdout, "Error reading %i after %i: %i\n", j, i, rc);
+  //         return 0;
+  //       }
+  //       if (retKey != j || retRid.pid != j || retRid.sid != j)
+  //       {
+  //         fprintf(stdout, "Error: inserted %i (%i %i), located %i (%i %i)\n", key, rid.pid, rid.sid, retKey, retRid.pid, retRid.sid);
+  //         return 0;
+  //       }
+  //    }
+  // }
  /* run the SQL engine taking user commands from standard input (console).*/
   SqlEngine::run(stdin);
 
