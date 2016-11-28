@@ -53,6 +53,8 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
   int curr_val;
   int min = -1;
   int max = -1;
+  int minVal = -1;
+  int maxVal = -1;
   int ge = 0;
   int le = 0;
 
@@ -60,8 +62,11 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
   string valIsEQ = "";          //value, if not empty
 
   bool isNE = false;            //if cond is not equals, no index tree
-  bool hasValCond = false;      //if value condition exists, if not: skip disk reading
+  bool hasVal = false;      //if value condition exists, if not: skip disk reading
   bool indexUsed = false;       //check for closing index tree appropriately
+  bool isNEVal = false;
+
+
   
   //variables for reading record file that contains the table
   int key;
@@ -104,15 +109,41 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
             }
             break;
         }
-      case 2: //if attribute is a value (only eq operator applies here since we would be comparing value to value)
-        if (curr_cond.comp == SelCond::EQ)
+      case 2: 
+        hasVal = true;
+        switch (curr_cond.comp) {
+          case SelCond::EQ:
             valIsEQ = curr_val;
+            break;
+          case SelCond::NE:
+            isNEVal = true;
+            break;
+          case SelCond::LT:
+            if (maxVal == -1 || maxVal >= curr_val)
+              maxVal = curr_val;
+            break;
+          case SelCond::GT:
+            if (minVal == -1 || minVal <= curr_val)
+              minVal = curr_val;
+            break;
+          case SelCond::LE:
+            if (maxVal == -1 || maxVal > curr_val) {
+              maxVal = curr_val;
+            }
+            break;
+          case SelCond::GE:
+            if (minVal == -1 || minVal < curr_val) {
+              minVal = curr_val;
+            }
+            break;
+        }
     }
   }
 
   //check if conditions can never be met
   if (max < min && min != -1 && max != -1)
     goto exit_select_early;
+  
 
   if (max == min && !ge && !le && min != -1 && max != -1)
     goto exit_select_early;
@@ -185,10 +216,10 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
 
       //move to next tuple
       next_tuple:
-        rid++;
+        ++rid;
     }
   } //END if-statement for using normal select
-  else if (treeindex.open(table + "idx", 'r') == 0) { //check there is a B+ tree for this query
+  else { //check there is a B+ tree for this query
     indexUsed = true;
     tupleCount = 0;
     rid.pid = 0;
@@ -209,7 +240,7 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
     while (treeindex.readForward(cursor, key, rid) == 0) {
 
       //if only key columns exist, avoid reading from disk
-      if (!hasValCond && attr == 4) {
+      if (!hasVal && attr == 4) {
         //validate keys
         if (keyIsEQ != -1 && key != keyIsEQ)    //equality conflict
           goto exit_select_early;
@@ -223,16 +254,31 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
           if ((ge && min > key) || (!ge && min >= key))
             goto exit_select_early;
         }
-
         tupleCount++;
         continue;     //continue while loop, skip over reading from disk
       }
+
+      /*if (keyIsEQ != -1 && key != keyIsEQ) continue;
+      if (max != -1) {                        //LE conflict
+          if ((le && max < key) || (!le && max <= key))
+            continue;
+        }
+
+        if (min != -1) {                        //GE conflict
+          if ((ge && min > key) || (!ge && min >= key))
+            continue;
+        }*/
+
 
       //read from disk tuple
       if ((rc = rf.read(rid, key, value)) < 0) {
         fprintf(stderr, "Error: while reading a tuple from table %s\n", table.c_str());
         goto exit_select;
       }
+
+      //if (valIsEQ != "" && value != valIsEQ) continue;
+      //if (maxVal != -1 && value >= maxVal) continue;
+      //if (minVal != -1 && value <= minVal) continue;
 
       //loop through all tuple conditions
       for (unsigned i = 0; i < cond.size(); i++) {
@@ -286,13 +332,14 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
       // print the tuple
       switch (attr) {
         case 1:  // SELECT key
-          fprintf(stdout, "%d\n", key);
+          cout << key << "\n";
           break;
         case 2:  // SELECT value
-          fprintf(stdout, "%s\n", value.c_str());
+          cout << value.c_str() << endl;
           break;
         case 3:  // SELECT 
-          fprintf(stdout, "%d '%s'\n", key, value.c_str());
+          cout << key << ' ' << value.c_str() << endl;
+          break;
       }
 
       continue_while_loop:
@@ -303,7 +350,7 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
   exit_select_early:    //go here if tuple fails a condition
     //print matching tuple count if "select count(*)"
     if (attr == 4)
-      fprintf(stdout, "%d\n", tupleCount);
+      cout << tupleCount << "\n";
     rc = 0;
 
   // close the table file and return
@@ -334,8 +381,8 @@ RC SqlEngine::load(const string& table, const string& loadfile, bool index)
   RecordId rId;
 
   if (index) {
-    string name = table + ".idx";
-    treeindex.open(name, 'w'); //get rootpid and treeheight if it already exists
+    treeindex.open(table + ".idx", 'w'); //get rootpid and treeheight if it already exists
+    int count = 0;
 
     while (getline(fs, line)) {
       parseLoadLine(line, key, value);

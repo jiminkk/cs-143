@@ -310,6 +310,10 @@ RC BTreeIndex::readForward(IndexCursor& cursor, int& key, RecordId& rid)
         return error_code;
     }
 
+    if(pid <= 0) {
+        return RC_INVALID_CURSOR;
+    }
+
     if (eid >= leaf_node.getKeyCount() - 1) { //if eid is greater than or equal to the max amount of keys, then we would consider this an overflow (-1 is for converting from 1 start to 0 start)
         cursor.eid = 0; //reset index entry to 0 for neighboring leafnode
         cursor.pid = leaf_node.getNextNodePtr(); //change to next neighboring node if we exceeded max on current node
@@ -321,4 +325,3 @@ RC BTreeIndex::readForward(IndexCursor& cursor, int& key, RecordId& rid)
 
     return 0;
 }
-
