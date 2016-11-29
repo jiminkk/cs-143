@@ -1,15 +1,41 @@
+
 LOAD xsmall FROM 'xsmall.del' WITH INDEX
 SELECT COUNT(*) FROM xsmall
-SELECT * FROM xsmall WHERE key < 2500
+SELECT * FROM xsmall WHERE key = 2342 AND key <> 2342
+SELECT * FROM xsmall WHERE key < 2342 AND key <> 2342
+SELECT * FROM xsmall WHERE key > 2342 AND key <> 2342
+SELECT * FROM xsmall WHERE key < 2342 AND key = 2342
+SELECT * FROM xsmall WHERE key > 2342 AND key = 2342
+SELECT * FROM xsmall WHERE key<200 AND key<2000 AND key<20000
+SELECT * FROM xsmall WHERE value > 'Baby Take a Bow'
+SELECT * FROM xsmall WHERE value <> 'Baby Take a Bow'
+SELECT * FROM xsmall WHERE value >= 'Baby Take a Bow' AND value < 'Knot'
+SELECT * FROM xsmall WHERE key > 2500 AND value > 'Baby Take a Bow'
 
 LOAD small FROM 'small.del' WITH INDEX
 SELECT COUNT(*) FROM small
 SELECT * FROM small WHERE key > 100 AND key < 500
+SELECT * FROM small WHERE key = 2342 AND key <> 2342
+SELECT * FROM small WHERE key < 2342 AND key = 2342
+SELECT * FROM small WHERE key<200 AND key<2000 AND key<20000
+SELECT * FROM small WHERE value > 'Baby Take a Bow'
+SELECT * FROM small WHERE value <> 'Baby Take a Bow'
+SELECT * FROM small WHERE value >= 'Baby Take a Bow' AND value < 'Knot'
+SELECT * FROM small WHERE key > 2500 AND value > 'Baby Take a Bow'
 
 LOAD medium FROM 'medium.del' WITH INDEX
 SELECT COUNT(*) FROM medium
 SELECT * FROM medium WHERE key = 489
+SELECT * FROM medium WHERE key > 100 AND key < 500
+SELECT * FROM medium WHERE key = 2342 AND key <> 2342
+SELECT * FROM medium WHERE key < 2342 AND key = 2342
+SELECT * FROM medium WHERE key<200 AND key<2000 AND key<20000
+SELECT * FROM medium WHERE value > 'Baby Take a Bow'
+SELECT * FROM medium WHERE value <> 'Baby Take a Bow'
+SELECT * FROM medium WHERE value >= 'Baby Take a Bow' AND value < 'Knot'
+SELECT * FROM medium WHERE key < 2500 AND value > 'Baby Take a Bow'
 
+--doesn't work from this point onwards
 LOAD large FROM 'large.del' WITH INDEX
 SELECT COUNT(*) FROM large
 SELECT * FROM large WHERE key > 4500

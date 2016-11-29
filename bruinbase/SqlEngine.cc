@@ -45,8 +45,8 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
 
   // open the table file
   if ((rc = rf.open(table + ".tbl", 'r')) < 0) {
-  fprintf(stderr, "Error: table %s does not exist\n", table.c_str());
-  return rc;
+    fprintf(stderr, "Error: table %s does not exist\n", table.c_str());
+    return rc;
   }
 
   SelCond curr_cond;
@@ -78,6 +78,8 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
   for (unsigned i = 0; i < cond.size(); i++) {
     curr_cond = cond[i];
     curr_val = atoi(cond[i].value);
+    // cout << "size: " << cond.size() << endl;
+    // cout << "attribute: " << curr_cond.attr << " comparator: " << curr_cond.comp << " and value: " << curr_cond.value << endl;
 
     switch(curr_cond.attr) {
       case 1: //if attribute is a key (all operators can apply here)
@@ -90,7 +92,7 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
             break;
           case SelCond::LT:
             if (max == -1 || max >= curr_val)
-              max = curr_val;
+              max = curr_val;       //max = 2000
             break;
           case SelCond::GT:
             if (min == -1 || min <= curr_val)
@@ -143,7 +145,10 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
   //check if conditions can never be met
   if (max < min && min != -1 && max != -1)
     goto exit_select_early;
-  
+
+cout << "max: " << max << " key is EQ: " << keyIsEQ << " min: " << min << endl;
+  if ((max != -1 && keyIsEQ != -1 && max == keyIsEQ) || (min != -1 && keyIsEQ != -1 && min == keyIsEQ))
+    goto exit_select_early;
 
   if (max == min && !ge && !le && min != -1 && max != -1)
     goto exit_select_early;
@@ -204,13 +209,13 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
       //print tuple 
       switch (attr) {
         case 1:  //key
-          cout << key << endl;
+          fprintf(stdout, "%d\n", key);
           break;
         case 2:  //value
-          cout << value.c_str() << endl;
+          fprintf(stdout, "%s\n", value.c_str());
           break;
         case 3:  //*
-          cout << key << ' ' << value.c_str() << endl;
+          fprintf(stdout, "%d '%s'\n", key, value.c_str());
           break;
       }
 
@@ -331,14 +336,14 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
 
       // print the tuple
       switch (attr) {
-        case 1:  // SELECT key
-          cout << key << "\n";
+        case 1:  //key
+          fprintf(stdout, "%d\n", key);
           break;
-        case 2:  // SELECT value
-          cout << value.c_str() << endl;
+        case 2:  //value
+          fprintf(stdout, "%s\n", value.c_str());
           break;
-        case 3:  // SELECT 
-          cout << key << ' ' << value.c_str() << endl;
+        case 3:  //*
+          fprintf(stdout, "%d '%s'\n", key, value.c_str());
           break;
       }
 
