@@ -35,7 +35,6 @@ SELECT * FROM medium WHERE value <> 'Baby Take a Bow'
 SELECT * FROM medium WHERE value >= 'Baby Take a Bow' AND value < 'Knot'
 SELECT * FROM medium WHERE key < 2500 AND value > 'Baby Take a Bow'
 
---doesn't work from this point onwards
 LOAD large FROM 'large.del' WITH INDEX
 SELECT COUNT(*) FROM large
 SELECT * FROM large WHERE key > 4500
@@ -45,4 +44,3 @@ LOAD xlarge FROM 'xlarge.del' WITH INDEX
 SELECT COUNT(*) FROM xlarge
 SELECT * FROM xlarge WHERE key = 4240
 SELECT * FROM xlarge WHERE key > 400 AND key < 500 AND key > 100 AND key < 4000000
-

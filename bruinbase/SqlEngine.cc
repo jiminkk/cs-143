@@ -38,11 +38,11 @@ RC SqlEngine::run(FILE* commandline)
 
 RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
 {
-  RecordFile rf;            //record file containing the table
-  RecordId   rid;           //record cursor for scanning table
   BTreeIndex treeindex;
   RC rc;
-
+  RecordFile rf;            //record file containing the table
+  RecordId   rid;           //record cursor for scanning table
+  
   // open the table file
   if ((rc = rf.open(table + ".tbl", 'r')) < 0) {
     fprintf(stderr, "Error: table %s does not exist\n", table.c_str());
@@ -64,7 +64,7 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
   bool isNE = false;            //if cond is not equals, no index tree
   bool hasVal = false;      //if value condition exists, if not: skip disk reading
   bool indexUsed = false;       //check for closing index tree appropriately
-  bool isNEVal = false;
+  bool isNEVal = false;     //check if ne conditon is used for value
 
 
   
@@ -146,7 +146,7 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
   if (max < min && min != -1 && max != -1)
     goto exit_select_early;
 
-cout << "max: " << max << " key is EQ: " << keyIsEQ << " min: " << min << endl;
+//cout << "max: " << max << " key is EQ: " << keyIsEQ << " min: " << min << endl;
   if ((max != -1 && keyIsEQ != -1 && max == keyIsEQ) || (min != -1 && keyIsEQ != -1 && min == keyIsEQ))
     goto exit_select_early;
 
@@ -232,12 +232,12 @@ cout << "max: " << max << " key is EQ: " << keyIsEQ << " min: " << min << endl;
     IndexCursor cursor;
 
     //set cursor position below
-    if (keyIsEQ != -1)                  //if we are trying to find a particular key
-      treeindex.locate(keyIsEQ, cursor);
-    else if (min != -1 && ge == 1)      //key >= min
+    if (min != -1 && ge == 1)      //key >= min
       treeindex.locate(min, cursor);
     else if (min != -1 && ge == 0)      //key > min
       treeindex.locate(min + 1, cursor);
+    else if (keyIsEQ != -1)                  //if we are trying to find a particular key
+      treeindex.locate(keyIsEQ, cursor);
     else                                //start from very first element
       treeindex.locate(0, cursor);
 
@@ -245,7 +245,7 @@ cout << "max: " << max << " key is EQ: " << keyIsEQ << " min: " << min << endl;
     while (treeindex.readForward(cursor, key, rid) == 0) {
 
       //if only key columns exist, avoid reading from disk
-      if (!hasVal && attr == 4) {
+      if (attr == 4 && !hasVal) {
         //validate keys
         if (keyIsEQ != -1 && key != keyIsEQ)    //equality conflict
           goto exit_select_early;
@@ -307,27 +307,30 @@ cout << "max: " << max << " key is EQ: " << keyIsEQ << " min: " << min << endl;
             }
             break;
           case SelCond::NE:
-            if (diff == 0) goto continue_while_loop;
-            break;
-          case SelCond::GT:
-            if (diff <= 0) goto next_tuple;
+            if (diff == 0) 
+              goto continue_while_loop;
             break;
           case SelCond::LT:
             if (diff >= 0) {
               if (cond[i].attr == 1)      //if this fails, following keys will fail as well
                 goto exit_select_early;
-              goto next_tuple;
+              goto continue_while_loop;
             }
             break;
-          case SelCond::GE:
-            if (diff < 0) goto next_tuple;
+          case SelCond::GT:
+            if (diff <= 0) 
+              goto continue_while_loop;
             break;
           case SelCond::LE:
             if (diff > 0) {
               if (cond[i].attr == 1)      //same for less than or equal to
                 goto exit_select_early;
-              goto next_tuple;
+              goto continue_while_loop;
             }
+            break;
+          case SelCond::GE:
+            if (diff < 0) 
+              goto continue_while_loop;
             break;
         }
       }
@@ -391,9 +394,9 @@ RC SqlEngine::load(const string& table, const string& loadfile, bool index)
 
     while (getline(fs, line)) {
       parseLoadLine(line, key, value);
-      if (rf.append(key, value, rId)) //gets location of pageid and slotid and store it into rId
+      if (rf.append(key, value, rId) != 0) //gets location of pageid and slotid and store it into rId
         return RC_FILE_WRITE_FAILED;
-      if (treeindex.insert(key, rId)) //insert key rId tuple into table
+      if (treeindex.insert(key, rId) != 0) //insert key rId tuple into table
         return RC_FILE_WRITE_FAILED;
     }
 

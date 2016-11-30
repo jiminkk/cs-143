@@ -310,7 +310,7 @@ RC BTreeIndex::readForward(IndexCursor& cursor, int& key, RecordId& rid)
         return error_code;
     }
 
-    if(pid <= 0) {
+     if(pid <= 0) {
         return RC_INVALID_CURSOR;
     }
 
